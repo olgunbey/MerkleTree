@@ -36,7 +36,22 @@ foreach (var item in replica)
 
 
 Console.WriteLine("---------------------- MERKLE TREE ALGORITHM EXECUTED-------------------");
+MerkleTree merkleTree = new MerkleTree();
+var executed= merkleTree.ExecuteMerkleTree(db1, replica);
 
+
+foreach (var item in executed.updatedMasterDb)
+{
+    Console.WriteLine("Updated Master Db: " + item.Id + " " + item.Name + " " + item.PhoneNumber + " " + item.UpdatedDate);
+}
+Console.WriteLine("-----------------------------------------------------------------------------");
+Console.WriteLine("-----------------------------------------------------------------------------");
+Console.WriteLine("-----------------------------------------------------------------------------");
+
+foreach (var item in executed.updatedReplicaDb)
+{
+    Console.WriteLine("Updated Replica Db: " + item.Id + " " + item.Name + " " + item.PhoneNumber + " " + item.UpdatedDate);
+}
 
 
 
@@ -124,7 +139,7 @@ public class MerkleTree
     }
 
 
-    public void ExecuteMerkleTree(List<User> masterDb, List<User> replicaDb)
+    public (List<User> updatedMasterDb,List<User> updatedReplicaDb) ExecuteMerkleTree(List<User> masterDb, List<User> replicaDb)
     {
         var masterDbNodes = masterDb.Select(y => new Node() { User = y, Hash = Hash(y) }).ToList();
 
@@ -175,6 +190,8 @@ public class MerkleTree
             updateMasterDbEntity.PhoneNumber = nodeReplication.User.PhoneNumber;
             updateMasterDbEntity.Name = nodeReplication.User.Name;
         }
+
+        return (masterDb, replicaDb);
 
     }
     private string Hash(User user)
