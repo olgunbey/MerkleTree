@@ -1,94 +1,4 @@
-﻿static void MerkleTreeAlgorithm(List<User> db1, List<User> replica)
-{
-    var db1Nodes = db1.Select(y => new Node() { User = y, Hash = HashData(y) }).ToList();
-
-    var replicaNodes = replica.Select(y => new Node() { User = y, Hash = HashData(y) }).ToList();
-
-    var dbCount = db1.Count;
-    var replicaCount = replica.Count;
-
-    var dbCountToNextPowerOfTwo = CountToNextPowerOfTwo(dbCount);
-    var replicaCountToNextPowerOfTwo = CountToNextPowerOfTwo(replicaCount);
-
-    var db1LastValue = db1Nodes.Last();
-    var replicaLastValue = replicaNodes.Last();
-    for (int i = 1; i <= dbCountToNextPowerOfTwo; i++)
-    {
-        db1Nodes.Add(db1LastValue);
-        replicaNodes.Add(replicaLastValue);
-    }
-
-
-    var nodeService = new NodeService();
-
-    var dbDct = nodeService.BuildMerkleTree(db1Nodes);
-
-    var replicaDct = nodeService.BuildMerkleTree(replicaNodes);
-
-
-    var tuple = nodeService.Compare(dbDct, replicaDct);
-
-
-    Node nodeDb = db1Nodes.Single(x => x.Hash == tuple.db1HashCode);
-
-    Node nodeReplication = replicaNodes.Single(x => x.Hash == tuple.replicationHashCode);
-
-
-    if (nodeDb.User.UpdatedDate > nodeReplication.User.UpdatedDate)
-    {
-
-        var updatedReplicaEntity = replica.Single(y => y.Id == nodeReplication.User.Id);
-        updatedReplicaEntity.UpdatedDate = nodeReplication.User.UpdatedDate;
-        updatedReplicaEntity.Surname = nodeReplication.User.Surname;
-        updatedReplicaEntity.PhoneNumber = nodeReplication.User.PhoneNumber;
-        updatedReplicaEntity.Name = nodeReplication.User.Name;
-    }
-    else if (nodeDb.User.UpdatedDate < nodeReplication.User.UpdatedDate)
-    {
-        var updatedDb1 = db1.Single(y => y.Id == nodeDb.User.Id);
-
-        updatedDb1.UpdatedDate = nodeReplication.User.UpdatedDate;
-        updatedDb1.Surname = nodeReplication.User.Surname;
-        updatedDb1.PhoneNumber = nodeReplication.User.PhoneNumber;
-        updatedDb1.Name = nodeReplication.User.Name;
-    }
-
-
-
-    foreach (var item in db1)
-    {
-        Console.WriteLine(item.Id + " " + item.Name + " " + item.PhoneNumber + " " + item.UpdatedDate);
-    }
-    Console.WriteLine("-----------------------------------------------------------------------------");
-    Console.WriteLine("-----------------------------------------------------------------------------");
-    Console.WriteLine("-----------------------------------------------------------------------------");
-    foreach (var item in replica)
-    {
-        Console.WriteLine(item.Id + " " + item.Name + " " + item.PhoneNumber + " " + item.UpdatedDate);
-    }
-
-
-}
-static string HashData(User user)
-{
-    var rawData = $"{user.Id}{user.Name}{user.Surname}{user.PhoneNumber}{user.UpdatedDate}";
-    var bytes = System.Text.Encoding.UTF8.GetBytes(rawData);
-    using var sha256 = System.Security.Cryptography.SHA256.Create();
-    var hashBytes = sha256.ComputeHash(bytes);
-    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-    return hashString;
-}
-
-static int CountToNextPowerOfTwo(int count)
-{
-    int power = 1;
-    while (power < count)
-    {
-        power *= 2;
-    }
-    return power - count;
-
-}
+﻿
 
 
 var db1 = new List<User>
@@ -126,7 +36,8 @@ foreach (var item in replica)
 
 
 Console.WriteLine("---------------------- MERKLE TREE ALGORITHM EXECUTED-------------------");
-MerkleTreeAlgorithm(db1, replica);
+
+
 
 
 
@@ -150,7 +61,7 @@ public class Node
     public string Hash { get; set; }
     public User User { get; set; }
 }
-public class NodeService
+public class MerkleTree
 {
     public string ComputeHash(string left, string right)
     {
@@ -190,7 +101,7 @@ public class NodeService
         }
     }
 
-    public (string db1HashCode, string replicationHashCode) Compare(Node rootDb1, Node rootReplica)
+    public (string masterDbHashCode, string replicationHashCode) Compare(Node rootDb1, Node rootReplica)
     {
         if (rootDb1.Left == null && rootDb1.Right == null || rootReplica.Left == null && rootReplica.Right == null)
         {
@@ -209,6 +120,81 @@ public class NodeService
             }
         }
         return (rootDb1.Hash, rootReplica.Hash);
+
+    }
+
+
+    public void ExecuteMerkleTree(List<User> masterDb, List<User> replicaDb)
+    {
+        var masterDbNodes = masterDb.Select(y => new Node() { User = y, Hash = Hash(y) }).ToList();
+
+        var replicaNodes = replicaDb.Select(y => new Node() { User = y, Hash = Hash(y) }).ToList();
+
+        var dbCount = masterDb.Count;
+        var replicaCount = replicaDb.Count;
+
+        var dbCountToNextPowerOfTwo = CountToNextPowerOfTwo(dbCount);
+        var replicaCountToNextPowerOfTwo = CountToNextPowerOfTwo(replicaCount);
+
+        var db1LastValue = masterDbNodes.Last();
+        var replicaLastValue = replicaNodes.Last();
+        for (int i = 1; i <= dbCountToNextPowerOfTwo; i++)
+        {
+            masterDbNodes.Add(db1LastValue);
+            replicaNodes.Add(replicaLastValue);
+        }
+
+
+        var rootMasterNode = BuildMerkleTree(masterDbNodes);
+        var rootReplicaNode = BuildMerkleTree(replicaNodes);
+
+        var tuple = Compare(rootMasterNode, rootReplicaNode);
+
+
+        Node nodeMaster = masterDbNodes.Single(x => x.Hash == tuple.masterDbHashCode);
+
+        Node nodeReplication = replicaNodes.Single(x => x.Hash == tuple.replicationHashCode);
+
+
+        if (nodeMaster.User.UpdatedDate > nodeReplication.User.UpdatedDate)
+        {
+
+            var updateReplicaEntity = replicaDb.Single(y => y.Id == nodeReplication.User.Id);
+
+            updateReplicaEntity.UpdatedDate = nodeReplication.User.UpdatedDate;
+            updateReplicaEntity.Surname = nodeReplication.User.Surname;
+            updateReplicaEntity.PhoneNumber = nodeReplication.User.PhoneNumber;
+            updateReplicaEntity.Name = nodeReplication.User.Name;
+        }
+        else
+        {
+            var updateMasterDbEntity = masterDb.Single(y => y.Id == nodeMaster.User.Id);
+
+            updateMasterDbEntity.UpdatedDate = nodeReplication.User.UpdatedDate;
+            updateMasterDbEntity.Surname = nodeReplication.User.Surname;
+            updateMasterDbEntity.PhoneNumber = nodeReplication.User.PhoneNumber;
+            updateMasterDbEntity.Name = nodeReplication.User.Name;
+        }
+
+    }
+    private string Hash(User user)
+    {
+        var rawData = $"{user.Id}{user.Name}{user.Surname}{user.PhoneNumber}{user.UpdatedDate}";
+        var bytes = System.Text.Encoding.UTF8.GetBytes(rawData);
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashBytes = sha256.ComputeHash(bytes);
+        var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        return hashString;
+    }
+
+    private int CountToNextPowerOfTwo(int count)
+    {
+        int power = 1;
+        while (power < count)
+        {
+            power *= 2;
+        }
+        return power - count;
 
     }
 }
