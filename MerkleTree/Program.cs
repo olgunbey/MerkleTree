@@ -39,9 +39,9 @@
 
         var updatedReplicaEntity = replica.Single(y => y.Id == nodeReplication.User.Id);
         updatedReplicaEntity.UpdatedDate = nodeReplication.User.UpdatedDate;
-        updatedReplicaEntity.Surname=nodeReplication.User.Surname;
-        updatedReplicaEntity.PhoneNumber=nodeReplication.User.PhoneNumber;
-        updatedReplicaEntity.Name=nodeReplication.User.Name;
+        updatedReplicaEntity.Surname = nodeReplication.User.Surname;
+        updatedReplicaEntity.PhoneNumber = nodeReplication.User.PhoneNumber;
+        updatedReplicaEntity.Name = nodeReplication.User.Name;
     }
     else if (nodeDb.User.UpdatedDate < nodeReplication.User.UpdatedDate)
     {
@@ -161,7 +161,6 @@ public class NodeService
         return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
 
-    public Node Root { get; private set; }
     public Node BuildMerkleTree(List<Node> hashSets)
     {
         int i = 0;
@@ -183,8 +182,7 @@ public class NodeService
         }
         if (afterLayer.Count == 1)
         {
-            Root = afterLayer.Single();
-            return Root;
+            return afterLayer.Single();
         }
         else
         {
